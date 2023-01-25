@@ -238,7 +238,7 @@ $> ssh-keygen -t ed25519
     trabajo a las autorizadas
   - Creamos un repositorio público vacio
   - Ejecutamos en nuestro entorno las instrucciones del epígrafe `…or
-    push an existing repository from the command line`
+    push an existing repository from the command line` (protocolo SSH)
 
 ---
 
@@ -309,6 +309,35 @@ Llamamos expresiones a cualquier elemento que devuelve un valor
 - No solamente definidas, también exportadas por el `resource` (doc)
 - `<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>`
 - Generan dependencias implicitas entre recursos.
+
+---
+
+# Input Variables
+Don't Repeat Yourself
+
+- `description`: Es importante añadirla ya que nos la mostrará en las
+  diferentes salidas
+- `default`: Regla: Que facilite la vida al usuario
+- `type` / `validation`: *Catch errors as soon as possible*
+- `sensitive`
+
+## Inicialización
+- Ficheros
+- Interactiva
+- Argumento línea de comando `terraform plan -var "<VARIABLE_NAME>=<VALUE>"`
+- Variables de entorno `TF_VAR_<VARIABLE_NAME>`
+
+---
+
+# Expresiones Terraform (II)
+
+### Literales
+### Referencias a atributos
+- `<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>`
+### Referencias a variables
+- `var.<VARIABLE_NAME>`
+### Interpolación en *strings*
+- `"${...}"`
 
 ---
 
