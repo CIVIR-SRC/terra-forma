@@ -268,33 +268,6 @@ $> ssh-keygen -t ed25519
 
 ---
 
-# Ejercicio 6 - Servidor Web simple (II)
-
-- Necesitamos abrir el tráfico (`ingress`)
-
-```hcl
-resource "aws_instance" "example" {
-#...
-  vpc_security_group_ids = [aws_security_group.instance.id]
-#...
-}
-
-resource "aws_security_group" "instance" {
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-```
-
-- Aplicamos y miramos en la consola la IP pública de nuestra
-  instancia
-- Comprobamos que se accede desde un navegador web
-
----
-
 # Expresiones Terraform (I)
 
 Llamamos expresiones a cualquier elemento que devuelve un valor
@@ -309,6 +282,33 @@ Llamamos expresiones a cualquier elemento que devuelve un valor
 - No solamente definidas, también exportadas por el `resource` (doc)
 - `<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>`
 - Generan dependencias implicitas entre recursos.
+
+---
+
+# Ejercicio 6 - Servidor Web simple (II)
+
+- Necesitamos abrir el tráfico (`ingress`)
+
+```hcl
+resource "aws_instance" "example" {
+#...
+  vpc_security_group_ids = [aws_security_group.allow_example.id]
+#...
+}
+
+resource "aws_security_group" "allow_example" {
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+- Aplicamos y miramos en la consola la IP pública de nuestra
+  instancia
+- Comprobamos que se accede desde un navegador web
 
 ---
 
@@ -360,3 +360,90 @@ variable "server_port" {
   - `terraform plan` a secas (interactiva)
   - `terraform plan -var "server_port=8080"`
   - `export TF_VAR_server_port=8080` antes de lanzar `plan`
+
+---
+
+# Ejercicio 8 - Output Variables
+
+- Vamos a pedir que nos diga la IP de la máquina que desplegamos
+- Creamos fichero `outputs.tf`
+
+```hcl
+output "public_ip" {
+  value       = aws_instance.example.public_ip
+  description = "The public IP address of the web server"
+}
+```
+
+## ¿Cómo usar los outputs?
+- Al finalizar un `terraform apply`
+- Al lanzar `terraform output`
+- E, ideal para *scripting* `terraform output public_ip`
+
+---
+
+# Documentación
+- https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+
+---
+
+# Ejercicio 9 - Convertir EC2 -> ASG
+
+- ASG: Auto scaling group
+- Convertir nuestra `aws_instance` en `aws_launch_configuration`
+  - Buscamos ls equivalencias en la **documentación**:
+     - `ami` -> `image_id`
+     - `user_data_replace_on_change` -> No existe, eliminar
+     - `vpc_security_group_ids` -> `security_groups`
+- Quedaría así:
+```hcl
+resource "aws_launch_configuration" "example" {
+  image_id        = "ami-0fb653ca2d3203ac1"
+  instance_type   = "t2.micro"
+  security_groups = [aws_security_group.allow_example.id]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              echo "Hello, World" > index.html
+              nohup busybox httpd -f -p ${var.server_port} &
+              EOF
+}
+```
+
+---
+
+# Ejercicio 9 - Convertir EC2 -> ASG (II)
+
+- Creamos  el `aws_autoscaling_group`
+```hcl
+resource "aws_autoscaling_group" "example" {
+  launch_configuration = aws_launch_configuration.example.name
+
+  min_size = 2
+  max_size = 10
+
+  tag {
+    key                 = "Name"
+    value               = "terraform-asg-example"
+    propagate_at_launch = true
+  }
+}
+```
+
+---
+
+# Lifecycle (I)
+
+- Por defecto, la lógica es: `destroy_before_create`
+- Hay casos donde esta lógica nos crea dependencias que provocan
+  errores.
+- Por ejemplo, el `autoscaling_group` depende de
+  `launch_configuration`
+  
+- Para solucionarlo añadimos a `aws_launch_configuration`:
+
+```hcl
+lifecycle {
+  create_before_destroy = true
+}
+```
