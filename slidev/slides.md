@@ -389,9 +389,9 @@ output "public_ip" {
 
 # Ejercicio 9 - Convertir EC2 -> ASG
 
-- ASG: Auto scaling group
+- ASG: Auto scaling group -> VA A NECESITAR UNA PLANTILLA
 - Convertir nuestra `aws_instance` en `aws_launch_configuration`
-  - Buscamos ls equivalencias en la **documentación**:
+  - Buscamos las equivalencias en la **documentación**:
      - `ami` -> `image_id`
      - `user_data_replace_on_change` -> No existe, eliminar
      - `vpc_security_group_ids` -> `security_groups`
@@ -414,7 +414,7 @@ resource "aws_launch_configuration" "example" {
 
 # Ejercicio 9 - Convertir EC2 -> ASG (II)
 
-- Creamos  el `aws_autoscaling_group`
+- Creamos el `aws_autoscaling_group`
 ```hcl
 resource "aws_autoscaling_group" "example" {
   launch_configuration = aws_launch_configuration.example.name
@@ -438,7 +438,10 @@ resource "aws_autoscaling_group" "example" {
 - Hay casos donde esta lógica nos crea dependencias que provocan
   errores.
 - Por ejemplo, el `autoscaling_group` depende de
-  `launch_configuration`
+  `launch_configuration`, por lo que si modificamos un
+  `launch_configuration` que esté en uso, al intentar destruirlo nos
+  dará error.
+- Esto sucederá principalmente en `resources` del tipo inmutables.
   
 - Para solucionarlo añadimos a `aws_launch_configuration`:
 
@@ -450,4 +453,98 @@ lifecycle {
 
 ---
 
+# Repaso Sintáxis
+
+- Recurso:
+
+```hcl
+resource "<PROVIDER>_<TYPE>" "<NAME>" {
+  <CONFIG>
+}
+```
+
+- Variable:
+
+```hcl
+variable "<NAME>" {
+  <CONFIG>
+}
+```
+
+- Referencias:
+
+```hcl
+<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>
+
+var.<NAME>
+```
+
+---
+
 # Data Sources
+
+Información sólo lectura
+
+Son trozos de información SÓLO LECTURA que se extraen del proveedor
+CADA VEZ que se ejecuta `terraform`.
+
+Un *data source* no crea nada nuevo, es una manera de extraer
+información y tenerla disponible para el resto del código Terraform.
+
+- Definición:
+
+```hcl
+data "<PROVIDER>_<TYPE> "<NAME>" {
+  <CONFIG>
+}
+```
+
+- Referencia:
+
+```hcl
+data.<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>
+```
+
+---
+
+# Ejercicio 10 - Extraer subnets
+
+- Utilizando *data sources* extraeremos la info de las subnets por
+  defecto del VPC por defecto
+
+```hcl
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+```
+
+- Apoyándonos en la documentación de `data.aws_subnets` hacemos que
+  nuestro ASG utilice las *subnets* extraídas usando el argumento
+  `vpc_zone_identifier`
+
+<!-- ```hcl
+ !--   vpc_zone_identifier = data.aws_subnets.ids
+ !-- ``` -->
+
+---
+
+ # Ejercicio 11 - Balanceador
+
+- Vamos a definir un balanceador ELB (Elastic Load Balancer) del tipo
+  ALB (Application Load Balancer - Layer 7)
+- Pasos:
+  - Crear recurso ALB
+  - Crear recurso ALB Listener
+  - Autorizar entrada y salida de tráfico en ALB (`security_groups`)
+  - Crear recurso ALB Target Groups
+  - Crear recurso ALB Listener Rules
+  - Actualizar nuestro Output a la dirección DNS del ALB
+
+---
