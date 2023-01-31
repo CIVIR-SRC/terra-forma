@@ -507,9 +507,9 @@ data.<PROVIDER>_<TYPE>.<NAME>.<ATTRIBUTE>
 
 ---
 
-# Ejercicio 10 - Extraer subnets
+# Ejercicio 10 - Extraer *subnets*
 
-- Utilizando *data sources* extraeremos la info de las subnets por
+- Utilizando *data sources* extraeremos la info de las *subnets* por
   defecto del VPC por defecto
 
 ```hcl
@@ -535,16 +535,150 @@ data "aws_subnets" "default" {
 
 ---
 
- # Ejercicio 11 - Balanceador
+# Ejercicio 11 - Balanceador
 
 - Vamos a definir un balanceador ELB (Elastic Load Balancer) del tipo
   ALB (Application Load Balancer - Layer 7)
 - Pasos:
-  - Crear recurso ALB
-  - Crear recurso ALB Listener
+  - Crear recurso LB
+  - Crear recurso LB Listener
   - Autorizar entrada y salida de tráfico en ALB (`security_groups`)
-  - Crear recurso ALB Target Groups
-  - Crear recurso ALB Listener Rules
-  - Actualizar nuestro Output a la dirección DNS del ALB
+  - Crear recurso LB Target Groups
+  - Crear recurso LB Listener Rules
+  - Actualizar nuestro Output a la dirección DNS del LB
 
 ---
+
+# Capítulo 3 - **Terraform State**
+##
+
+Llamamos estado a la información almacenada sobre la infraestructura
+ya creada, se guarda en un fichero JSON.
+
+- La API del estado es **PRIVADA**
+- Surgen las siguientes preguntas:
+  - ¿Cómo lo compartimos? - (AWS S3 Bucket)
+  - ¿Es seguro? - (*Encryption-at-rest*)
+  - Al compartirlo, ¿cómo evitamos que varios miembros accedan a la
+    vez? - (AWS DynamoDB)
+  - ¿Cómo aislamos los estados de diferentes entornos? - (*workspaces*
+    de Terraform ó estructura de directorios)
+
+---
+
+# Backends
+##
+
+Definición de dónde Terraform almacena el estado:
+
+```hcl
+terraform {
+  backend "<BACKEND_NAME>" {
+    [CONFIG...]
+  }
+}
+```
+
+- IMPORTANTE: No está permitido usar variables o referencias
+- El backend por defecto es `local`
+- Existen backends para: `s3`, `azurerm`, `gcs`, `consul`, `http`, etcétera.
+
+---
+
+# Ejercicio 12 - Infra para State
+
+- Aislar (mover) el proyecto del cluster web a un direcotrio propio, por
+  ejemplo a `./dev/services/webserver-cluster`.
+- Definir aisladamente (por ejemplo en `./global/s3`) la
+  infraestructura necesaria para almacenar el estado en AWS:
+  - S3 Bucket, con las características de: versionado de ficheros;
+    encriptación; y acceso público restringido.
+  - Tabla en DynamoDB con el `hash_key` y el tipo de dato que necesita
+    Terraform. (Buscar en la documentación del *backend* S3).
+- Añadir en ambos directorios la definición del `backend` recién
+  creado. (**OJO**: Deben tener valores `key` diferentes).
+- Inicializar el *backend* con `terraform init` y migrar el estado
+  `local`.
+
+---
+
+# Ejemplo de organización
+
+```bash
+$> tree
+.
+├── global
+│   ├── iam
+│   └── s3
+│       ├── main.tf
+│       └── outputs.tf
+├── stage
+│   ├── vpc
+│   ├── services
+│   │   ├── frontend-app
+│   │   │   ├── main.tf
+│   │   │   ├── outputs.tf
+│   │   │   └── variables.tf
+│   │   └── backend-app
+│   └── data-storage
+├── prod
+└── mgmt
+```
+
+---
+
+# Ejercicio 13 - Estado remoto *Data Source*
+
+- Crear nueva configuración para una base de datos en
+  `./integ/data-stores/mysql`:
+  - Definimos nuevo recurso: `aws_db_instance` con motor `mysql`
+  - Creamos 2 variables para el usuario y contraseña de la
+    BBDD. (Recuerda `sensitive = true`)
+  - Configuramos el mismo *backend* que usamos en el ejercicio
+    anterior. (Recuerda cambiar el valor de `key`)
+  - Creamos 2 variables de salida (`outputs.tf`) para la dirección y el
+    puerto de la BBDD.
+
+- Aplicamos la nueva definición, exportando previamente el usuario y
+  contraseña mediante variables de entorno: `$> export
+  TF_VAR_db_password="PASSWORD"`
+
+- Añadimos *data source* tipo `terraform_remote_state` al `main.tf` de
+  nuestro cluster web
+
+- Añadimos la referencia al puerto y dirección de la BBDD en nuestro
+  `user_data` (OPCIONAL: Convertir el *script inline* en un fichero
+  independiente)
+
+---
+
+# Capítulo 4 - **Módulos**
+
+- ¿Cómo evitamos tener que estar copiando y pegando código entre
+  `integ` y `prod`?
+- Los módulos son la clave para escribir código Terraform
+  reutilizable, mantenible y *testable*
+- Cualquier conjunto de archivos `.tf` en un directorio son
+  técnicamente un módulo. Es decir, lo que hemos hecho hasta ahora son
+  módulos, pero aun no son reutilizables.
+- Para llamar a un módulo usamos:
+
+```hcl
+module "<NAME>" {
+  source = "<SOURCE>"
+  
+  [CONFIG ...]
+}
+```
+
+## Mini-ejercicio
+
+- Creamos `./modules/services/webserver-cluster` y movemos el
+  contenido de `./integ/services/webserver-cluster` eliminando el
+  bloque `provider`
+
+- Llamamos al nuevo módulo en `prod` y en `integ`
+
+---
+
+# Module Inputs
