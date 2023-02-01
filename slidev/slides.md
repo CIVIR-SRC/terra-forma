@@ -434,7 +434,7 @@ resource "aws_autoscaling_group" "example" {
 
 # Lifecycle (I)
 
-- Por defecto, la lógica es: `destroy_before_create`
+- Por defecto, la lógica es: `destroy_before_create`.
 - Hay casos donde esta lógica nos crea dependencias que provocan
   errores.
 - Por ejemplo, el `autoscaling_group` depende de
@@ -527,7 +527,7 @@ data "aws_subnets" "default" {
 
 - Apoyándonos en la documentación de `data.aws_subnets` hacemos que
   nuestro ASG utilice las *subnets* extraídas usando el argumento
-  `vpc_zone_identifier`
+  `vpc_zone_identifier`.
 
 <!-- ```hcl
  !--   vpc_zone_identifier = data.aws_subnets.ids
@@ -538,7 +538,7 @@ data "aws_subnets" "default" {
 # Ejercicio 11 - Balanceador
 
 - Vamos a definir un balanceador ELB (Elastic Load Balancer) del tipo
-  ALB (Application Load Balancer - Layer 7)
+  ALB (Application Load Balancer - Layer 7).
 - Pasos:
   - Crear recurso LB
   - Crear recurso LB Listener
@@ -579,8 +579,8 @@ terraform {
 }
 ```
 
-- IMPORTANTE: No está permitido usar variables o referencias
-- El backend por defecto es `local`
+- IMPORTANTE: No está permitido usar variables o referencias.
+- El backend por defecto es `local`.
 - Existen backends para: `s3`, `azurerm`, `gcs`, `consul`, `http`, etcétera.
 
 ---
@@ -588,7 +588,7 @@ terraform {
 # Ejercicio 12 - Infra para State
 
 - Aislar (mover) el proyecto del cluster web a un direcotrio propio, por
-  ejemplo a `./dev/services/webserver-cluster`.
+  ejemplo a `./integ/services/webserver-cluster`.
 - Definir aisladamente (por ejemplo en `./global/s3`) la
   infraestructura necesaria para almacenar el estado en AWS:
   - S3 Bucket, con las características de: versionado de ficheros;
@@ -631,54 +631,140 @@ $> tree
 
 - Crear nueva configuración para una base de datos en
   `./integ/data-stores/mysql`:
-  - Definimos nuevo recurso: `aws_db_instance` con motor `mysql`
+  - Definimos nuevo recurso: `aws_db_instance` con motor `mysql`.
   - Creamos 2 variables para el usuario y contraseña de la
-    BBDD. (Recuerda `sensitive = true`)
+    BBDD. (Recuerda `sensitive = true`).
   - Configuramos el mismo *backend* que usamos en el ejercicio
-    anterior. (Recuerda cambiar el valor de `key`)
+    anterior. (Recuerda cambiar el valor de `key`).
   - Creamos 2 variables de salida (`outputs.tf`) para la dirección y el
     puerto de la BBDD.
 
 - Aplicamos la nueva definición, exportando previamente el usuario y
   contraseña mediante variables de entorno: `$> export
-  TF_VAR_db_password="PASSWORD"`
+  TF_VAR_db_password="PASSWORD"`.
 
 - Añadimos *data source* tipo `terraform_remote_state` al `main.tf` de
-  nuestro cluster web
+  nuestro cluster web.
 
 - Añadimos la referencia al puerto y dirección de la BBDD en nuestro
   `user_data` (OPCIONAL: Convertir el *script inline* en un fichero
-  independiente)
+  independiente).
 
 ---
 
-# Capítulo 4 - **Módulos**
+# Parte 4 - **Módulos**
+Funciones
 
 - ¿Cómo evitamos tener que estar copiando y pegando código entre
   `integ` y `prod`?
 - Los módulos son la clave para escribir código Terraform
-  reutilizable, mantenible y *testable*
+  reutilizable, mantenible y *testable*.
 - Cualquier conjunto de archivos `.tf` en un directorio son
   técnicamente un módulo. Es decir, lo que hemos hecho hasta ahora son
   módulos, pero aun no son reutilizables.
-- Para llamar a un módulo usamos:
+- Para utilizar un módulo usamos:
 
 ```hcl
 module "<NAME>" {
   source = "<SOURCE>"
-  
   [CONFIG ...]
 }
 ```
 
-## Mini-ejercicio
+## Ejercicio 4.1
 
 - Creamos `./modules/services/webserver-cluster` y movemos el
   contenido de `./integ/services/webserver-cluster` eliminando el
-  bloque `provider`
-
-- Llamamos al nuevo módulo en `prod` y en `integ`
+  bloque `provider`.
+- Llamamos al nuevo módulo en `prod` y en `integ`.
 
 ---
 
 # Module Inputs
+La API (Interfaz) del módulo.
+
+- Son el equivalente a los parámetros en una función de un lenguaje de
+  uso general.
+- Se declaran EXACTAMENTE igual que se declaran las variables.
+- Será necesario convertir en *input* valores *hardcodeados* que
+  varien entre entornos y, opcionalmente, algunas configuraciones.
+
+## Ejercicio 4.2
+
+- Añadimos *inputs* al módulo `webserver-cluster` para evitar valores
+  *hardcodeados* (`db_remote_state_bucket`, `db_remote_state_key`,
+  `cluster_name`).
+- Fijamos valores para estos nuevos *inputs* en la llamada al
+  módulo. En `integ` y en `prod`.
+- Añadimos y fijamos nuevos *inputs* para configuraciones que,
+  potencialmente, variarán entre entornos. (Por ejemplop: `instance_type`).
+
+---
+
+# Module Locals
+Variables de uso privado
+
+- Para evitar *DRY* sin exponer variables públicamente.
+- Facilitar la legibilidad y el mantenimiento.
+```hcl
+locals {
+  <NAME> = <VALUE>
+  ...
+}
+```
+
+- Las referenciamos con `local.<NAME>`.
+
+## Ejercicio 4.3
+
+- Añadimos varios *locals* a nuestro módulo. Por ejemplo: `http_port`,
+  `any_port`, `any_protocol`, `all_ips`, ...
+
+---
+
+# Module Outputs
+Valores que devuelve
+
+- Como en una función, tenemos que ser explicitos con los valores que
+  queremos devolver a los usuarios de los módulos.
+- Se definen igual que los _outputs_ que hemos definido hasta ahora.
+- Para referenciar el valor de un output: `module.<MODULE_NAME>.<OUTPUT_NAME>`.
+
+## Ejercicio 4.4
+
+- Hacemos _pass through_ del nombre DNS en el `outputs.tf` de los
+  entornos.
+- Ejemplo:
+```hcl
+output "alb_dns_name" {
+  value = module.webserver_cluster.alb_dns_name
+}
+```
+
+---
+
+# Notas sobre los Módulos
+Algunas consideraciones a tener en cuenta
+
+- Si usamos un ruta relativa en un módulo, Terraform buscará el fichero
+  en el directorio de ejecución. Para evitar eso disponemos de las
+  referencias: `path.module`, `path.root` y `path.cwd`.
+- La configuración de algunos _resources_ se puede hacer dentro del
+  propio bloque o en un _resource_ propio.
+- Cuando creamos módulos el consejo es usar **SIEMPRE** _resources_
+  separados. Esto hará que creemos módulos más flexibles y
+  personalizables.
+- Para que un módulo pueda usarse en entornos productivos y no
+  productivos necesita tener su propio ciclo de desarrollo. _Semantic
+  Versioning_.
+
+## Ejercicio 4.5
+
+- Pensar cómo haríamos para abrir en `prod` el puerto 80 y en `integ`
+  el 80 y el 12345.
+- Movemos los módulos a su propio repositorio `git` y _taggeamos_ la
+  versión.
+
+---
+
+# Parte 5 - Tips and Tricks
