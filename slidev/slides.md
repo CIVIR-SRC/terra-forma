@@ -661,8 +661,8 @@ Funciones
   reutilizable, mantenible y *testable*.
 - Cualquier conjunto de archivos `.tf` en un directorio son
   técnicamente un módulo. Es decir, lo que hemos hecho hasta ahora son
-  módulos, pero aun no son reutilizables.
-- Para utilizar un módulo usamos:
+  módulos (_Root modules_), pero aun no son reutilizables.
+- Para utilizar un módulo (_Child module_) usamos:
 
 ```hcl
 module "<NAME>" {
@@ -677,6 +677,55 @@ module "<NAME>" {
   contenido de `./integ/services/webserver-cluster` eliminando el
   bloque `provider`.
 - Llamamos al nuevo módulo en `prod` y en `integ`.
+
+---
+
+# Repaso organización de nuestro código (I)
+##
+(NOTA: Llamaremos `$PRJ_ROOT` al directorio raíz de nuestro entorno de
+trabajo)
+
+1. Comenzamos desarrollando un _Root Module_ (terminología exacta
+   Terraform) para un _cluster_ web directamente en `$PRJ_ROOT`.
+   
+2. Para tener ficheros de estado aíslados según entorno o tipo de
+   servicio creamos una estructura de directorios. NOTAS: 
+   - **La organización de la estructura elegida es arbitraria,
+   solamente un ejemplo.**.
+   - Cada cliente puede necesitar una estructura diferente.
+   - ¿Usa vuestro cliente una organización de este tipo?  ¿Usando
+   directorios? ¿Qué otro modo diferente a los directorios usa?
+
+3. Desarrollamos otros _Root Modules_ en sus correspondientes
+   directorios (Ejemplos:`$PRJ_ROOT/global/s3` y servidor `mysql`).
+
+---
+
+# Repaso organización de nuestro código (II)
+##
+
+4. Creamos un nuevo directorio en `$PRJ_ROOT` donde guardaremos _Root
+   Modules_ listos para ser reutilizados
+   (`$PRJ_ROOT/modules/...`). NOTAS:
+   - **Este nombre de directorio también es arbitrario**.
+   - Es una manera de agrupar, de manera lógica, el código apto para
+     ser reutilizado.
+   - ¿Vuestro cliente cómo agrupa sus módulos? 
+
+5. Convertimos nuestro _Root module_ del _cluster_ web en código
+   preparado para ser reutilizado y lo guardamos en su propio
+   directorio dentro de `modules`.
+
+6. Modificamos nuestro _cluster_ web para que haga uso del módulo
+   reutilizable ( `module "<NAME>" { source = ... }` ). Siguiendo
+   estrictamente la terminología Terraform: Al módulo que es llamado
+   desde el _Root Module_ se le llama _Child Module_.
+
+7. Siendo necesario que el ciclo de desarrollo de los **módulos listos
+   para ser reutilizados** sea diferente al del las **configuraciones
+   que definen la infraestructura de cada entorno**, los separaremos
+   en (al menos) 2 repositorios diferentes. (Por ejemplo: `modules` y
+   `live`).
 
 ---
 
