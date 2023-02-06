@@ -1,4 +1,6 @@
 ---
+theme: seriph
+---
 
 # TERRA-FORMA(CION)
 
@@ -396,7 +398,7 @@ output "public_ip" {
      - `user_data_replace_on_change` -> No existe, eliminar
      - `vpc_security_group_ids` -> `security_groups`
 - Quedaría así:
-```hcl
+```hcl {2,3,4}
 resource "aws_launch_configuration" "example" {
   image_id        = "ami-0fb653ca2d3203ac1"
   instance_type   = "t2.micro"
@@ -817,3 +819,101 @@ Algunas consideraciones a tener en cuenta
 ---
 
 # Parte 5 - Tips and Tricks
+
+---
+layout: section
+---
+# Parte 6 - Gestión de Credenciales
+##
+
+Concepto básico
+
+Clasificación de credenciales y herramientas
+
+Comparativa de herramientas
+
+Uso en Terraform
+
+---
+
+# Concepto básico
+
+- 2 Reglas:
+  - No guardes tus credenciales en ficheros de texto sin ecriptar.
+  - **NO GUARDES TUS CREDENCIALES EN FICHEROS DE TEXTO SIN ENCRIPTAR**
+
+- ¿Por qué es una mala idea?
+  - Cualquier persona con acceso al sistema de control de versiones
+    tiene acceso a la credencial.
+  - Cada máquina (CI/CD, Backup...) que tiene acceso al control de
+    versiones guardará una copia de la credencial.
+  - Las credenciales estarán en tantos lugares que potencialmente
+    cualquier software de la organización tendrá acceso a él.
+  - No hay forma de auditar o revocar el acceso a esa credencial.
+
+- SOLUCIÓN: **Herramienta** para la gestión de credenciales
+  **adecuada**.
+
+---
+
+# Clasificación de credenciales y herramientas
+
+- 3 tipos de credenciales:
+  - Personales - _usuarios, contraseñas, claves SSH, ..._
+  - De los clientes - _usuarios y contraseñas de tus clientes,
+    información personal, ..._
+  - De la infraestructura - _contraseñas de BBDD, claves API,
+    certificados, ..._
+
+- 2 formas habituales de guardarlas:
+  - En ficheros encriptados (dilema: ¿dónde almacenamos la clave de
+    encriptación? - _AWS KMS, usando claves PGP, ..._).
+  - Almacén centralizado. La clave de encriptación se guarda con
+    mecanismos del propio almacén o, de nuevo, con _AWS KMS_ o similar.
+
+- 3 formas de acceder: API, CLI y/o Interfaz gráfica.
+
+---
+
+# Comparativa de herramientas
+
+- **HashiCorp Vault** | Infraestructura | Centralizado | UI, API, CLI
+- **AWS Secrets Manager** | Infraestructura | Centralizado | UI, API, CLI
+- **sops** | Infraestructura | Ficheros | CLI
+- **LastPass** | Personal | Centralizado | UI, API, CLI
+- **KeePass** | Personal | Ficheros | UI, CLI
+- **Active Directory** | Clientes | Centralizado | UI, API, CLI
+- **Auth0** | Clientes | Centralizado | UI, API, CLI
+
+---
+
+# Uso en Terraform providers
+
+- Por humanos:
+  - Variables de entorno + gestor de tipo personal.
+  - Herramientas CLI específicas de un proveedor (`aws-vault`).
+
+## Ejercicio 6.1
+Creamos un perfil en `aws-vault` usando nuestras credenciales y
+eliminamos el fichero no seguro que estabamos utilizando hasta ahora.
+
+```sh
+$> export AWS_VAULT_BACKEND=file
+$> aws-vault add <PROFILE>
+$> rm ~/.aws/credentials
+$> aws-vault exec --region=us-east-1 <PROFILE> env
+```
+
+---
+
+# Uso en Terraform providers (II)
+
+- Por máquinas
+
+---
+
+# Uso en Terraform resources y data sources
+
+---
+
+# Uso en Terraform plan
